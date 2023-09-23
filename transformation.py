@@ -1,3 +1,11 @@
+# COMPROBAR
+# row[fData] PUEDE SER ' ' O NUMERICO 
+# vconditionData == row[fData]:
+
+
+
+
+
 import csv
 import  decimal
 import pandas as pd
@@ -23,25 +31,32 @@ path = os.getcwd()
 
 
 # pathCSV = path.join("data/template.csv")
-pathCSV = "C:\\Code\\redcap-etl-transformation-lambda\\data\\template.csv"
-
-pathNewCSV = "C:\\Code\\redcap-etl-transformation-lambda\\data\\newfile.csv"
-
+# pathCSV = "C:\\Code\\redcap-etl-transformation-lambda\\data\\template.csv"
+pathCSV = os.path.abspath(input("Relative File path with the REDCAP Project Template with updated mapping files on Row 2 (Default data/template.csv)") or "data\\template.csv")
+pathCSV = pathCSV.strip()
+pathNewCSV = os.path.abspath(input("Relative  CSV  File Path Converted  (Default data/newfile.csv)") or "data\\newfile.csv")
+pathNewCSV = pathNewCSV.strip()
 # pathExcel = path.join("./data/")
 #pathExcel = "C:\\Code\\redcap-etl-transformation-lambda\\data\\SampleDataTbi1987-2022Lite.xlsx"
-pathExcel = "C:\\Code\\redcap-etl-transformation-lambda\\data\\SampleDataTbi1987-2022New.xlsx"
+# pathExcel = "C:\\Code\\redcap-etl-transformation-lambda\\data\\SampleDataTbi1987-2022New.xlsx"
+pathExcel = os.path.abspath(input("Relative  Excel Dataset File (Default \data\SampleData.xlsx)" ) or "data\\SampleData.xlsx")
+pathExcel = pathExcel.strip()
+
+print (pathNewCSV)
+print (pathCSV)
+print (pathExcel)
 
 PATTERN_FIELD_CALCULATED = "if [FIELD][OPERATOR][EXPRESSION],[VALUE]" # p.e (if epcont_biv=0,0)
 
 PATTERN_PREFIX = "if "
 
 # VALORES A LIMPIAR O IGNORAR , MEJOR HACER LIMPIEZA EN DATAFRAME 
-PATTERN_VALUES_ERRORS_TARGET = ["#NULL!"]
+PATTERN_VALUES_ERRORS_TARGET = ["#NULL!", ' ']
 
 
 pattern_calculated_expression = "if +([0-9,a-z,A-Z,-,_]+)([,>,<,=]+)([0-9]+)(,+)([0-9]+)"
 
-
+DEFAULT_CALCULATED_FIELDS_VALUES_FALSE_CONDITION = 0
 
 
 class operations(Enum):
@@ -100,23 +115,24 @@ def date_format_from_timestamp(timestamp_str):
 # field = groups[0]
 # condition = groups[1]
 # value_condition = groups[2]
-# else_condition = groups[3]
+# true_condition = groups[3]
+# 'if subd_1tc=1,1'
 
 def splitCalculatedField(fieldData):
     if PATTERN_PREFIX in fieldData:                    
         resultformulafield = re.search(pattern_calculated_expression, fieldData)
         if resultformulafield is  None or resultformulafield.groups() is None:                                
-            return None , None, None, None                                     
+            return None , None, None, None, None                                   
         else:           
             groups = resultformulafield.groups()
             # print (groups) 
             field = groups[0]
             condition = groups[1]
-            value_condition = groups[2]
-            else_condition = groups[3]
-            return field, condition,value_condition,else_condition
+            value_condition = str(groups[2])
+            true_condition = str(groups[4])
+            return field, condition,value_condition,true_condition, DEFAULT_CALCULATED_FIELDS_VALUES_FALSE_CONDITION
     else:
-         return None , None, None, None
+         return None , None, None, None, None
 
 # TEMPLATE CONTIENE EL NOMBRE DE LOS CAMPOS 
 # SEGUNDA FILA , LOS DATOS DE LOS CAMPOS DEL EXCEL A IMPORTAR 
@@ -133,7 +149,7 @@ def listSearchItems(value, listToSearch):
 new_row_dict_columns_mapping = dict()
 
 
-
+print ("Starting validation entry data..")
 if dfTemplateDataCVS is not None:
     #for index,row in dfTemplateDataCVS.iterrows():   ## SOLO COGEMOS EL ROW == 1 QUE ES EL QUE MARCA LOS NOMBRES A BUSCAR 
     #     if row is not None:        # empty rows avoid 
@@ -166,8 +182,8 @@ if dfTemplateDataCVS is not None:
                 if bColumnExists is False: 
                     # VERIFICAMOS SI ES UN PATRON VALIDO EN CASO DE QUE SEA CALCULADO
                     #       
-                    fieldData,conditionData,value_conditionData,else_conditionData = None,None,None,None
-                    fieldData,conditionData,value_conditionData,else_conditionData =  splitCalculatedField(searchValueColumn)                          
+                    fieldData,conditionData,value_conditionData,true_condition,else_conditionData = None,None,None,None,None
+                    fieldData,conditionData,value_conditionData,true_condition,else_conditionData =  splitCalculatedField(searchValueColumn)                          
                 
                     # print (f"resultformulafield {resultformulafield} row[col_name] {row[col_name]}")                                                                    
                     if fieldData is  None:                                
@@ -192,55 +208,58 @@ if dfTemplateDataCVS is not None:
     new_list_values =  [] # dict() 
     controws = 0;               
     if failedFields == 0:   ## va correcto el proceso 
+        print ("No wrong fields, creating mapping process")
         for index,row in dfSampleData.iterrows():   ## SOLO COGEMOS EL ROW == 1 QUE ES EL QUE MARCA LOS NOMBRES A BUSCAR 
         # if row is not None:        # empty rows avoid 
             new_dict_values = dict()
             for itemkey  in new_row_dict_columns_mapping:
                     
-                    # VERIFICAMOS SI ES UN CAMPO CALCULADO  (debug)
-                    #if itemkey == "ocular_admision":
-                        #print ("f{itemkey}")
+                    
                     if PATTERN_PREFIX in new_row_dict_columns_mapping[itemkey]:
-                        fData,cData,vconditionData,falseconditionData = None,None,None,None
+                        fData,cData,vconditionData,true_condition,falseconditionData = None,None,None,None, None
 
                         calculatedFieldValue = new_row_dict_columns_mapping[itemkey]
 
-                        fData,cData,vconditionData,falseconditionData =  splitCalculatedField(calculatedFieldValue) 
+                        fData,cData,vconditionData,true_condition,falseconditionData =  splitCalculatedField(calculatedFieldValue) 
 
-                        calculatedFieldValue = 0 
-                        if cData == operators.EQUAL:
-                            if vconditionData == row[fData]:
-                                calculatedFieldValue = vconditionData 
-                            else:
-                                 calculatedFieldValue = falseconditionData 
-                        if cData == operators.GREATER:
-                            if row[fData] > vconditionData:
-                                calculatedFieldValue = vconditionData 
-                            else:
-                                 calculatedFieldValue = falseconditionData 
-                        if cData == operators.GREATERIGUAL:
-                            if row[fData] >= vconditionData:
-                                calculatedFieldValue = vconditionData 
-                            else:
-                                 calculatedFieldValue = falseconditionData 
-                        if cData == operators.LESS:
-                            if row[fData] < vconditionData:
-                                calculatedFieldValue = vconditionData 
-                            else:
-                                 calculatedFieldValue = falseconditionData 
-                        if cData == operators.LESSIGUAL:
-                            if vconditionData <= row[fData]:
-                                calculatedFieldValue = vconditionData 
-                            else:
-                                 calculatedFieldValue = falseconditionData                                           
-                        final_data_redcap_row_column = {itemkey : calculatedFieldValue} # TO CHANGED WITH EVALUATE EXPRESSION 
+                        if fData is not None and row[fData] is not None and str(row[fData]).strip()!='': 
+                            if itemkey == "tc_control_24h":
+                               debug  = 1
+                            mappingFieldValue = str(row[fData])
+
+                            if cData == operators.EQUAL.value:
+                                if vconditionData == mappingFieldValue:
+                                    calculatedFieldValue = true_condition 
+                                else:
+                                    calculatedFieldValue = falseconditionData 
+                            if cData == operators.GREATER.value:
+                                if mappingFieldValue > vconditionData:
+                                    calculatedFieldValue = true_condition 
+                                else:
+                                    calculatedFieldValue = falseconditionData 
+                            if cData == operators.GREATERIGUAL.value:
+                                if mappingFieldValue >= vconditionData:
+                                    calculatedFieldValue = true_condition 
+                                else:
+                                    calculatedFieldValue = falseconditionData 
+                            if cData == operators.LESS.value:
+                                if mappingFieldValue < vconditionData:
+                                    calculatedFieldValue = true_condition 
+                                else:
+                                    calculatedFieldValue = falseconditionData 
+                            if cData == operators.LESSIGUAL.value:
+                                if vconditionData <= mappingFieldValue:
+                                    calculatedFieldValue = true_condition 
+                                else:
+                                    calculatedFieldValue = falseconditionData                                           
+                            final_data_redcap_row_column = {itemkey : calculatedFieldValue} # TO CHANGED WITH EVALUATE EXPRESSION 
                     else:
 
                         # DD-MM-YYYY (NO HOURS) 
                         # . FOR DECIMAL SEPARATOR 
                         # 
                         if new_row_dict_columns_mapping[itemkey] == ''  or pd.isna(row[new_row_dict_columns_mapping[itemkey]]) or row[new_row_dict_columns_mapping[itemkey]] in PATTERN_VALUES_ERRORS_TARGET:  ## contador field 
-                            final_data_redcap_row_column = {itemkey : controws if itemkey=='record_id' else  ''}
+                            final_data_redcap_row_column = {itemkey : controws+1 if itemkey=='record_id' else  ''}
                         else:
                             if isinstance(row[new_row_dict_columns_mapping[itemkey]], float): # 
                                 rounded  = row[new_row_dict_columns_mapping[itemkey]] #  round(row[new_row_dict_columns_mapping[itemkey]], 6)                                
@@ -252,17 +271,20 @@ if dfTemplateDataCVS is not None:
                                     final_data_redcap_row_column = {itemkey : row[new_row_dict_columns_mapping[itemkey]]  }
                                 else: #timestamp
                                     dateformatValue = date_format_from_timestamp(row[new_row_dict_columns_mapping[itemkey]])
-                                    if dateformatValue !='':                                    
+                                    if dateformatValue.strip() !='':                                    
                                         final_data_redcap_row_column = {itemkey : dateformatValue}
                                     else:
                                         final_data_redcap_row_column = {itemkey : ''}    
                     new_dict_values.update(final_data_redcap_row_column)                                
-
+                    # VERIFICAMOS SI ES UN CAMPO CALCULADO  (debug)
+                    # if itemkey == "dias_isquemia" and new_row_dict_columns_mapping[itemkey].strip()!='':
+                    #    print (f"{itemkey}  {new_row_dict_columns_mapping[itemkey]}  {row[new_row_dict_columns_mapping[itemkey]]} {final_data_redcap_row_column}")
             # END OF DATA ROW, UPDATING TO THE ROW OF REDCAP TEMPLATE 
             # INDEX IS REQUIRED WITH 
             new_list_values.append(new_dict_values)
             controws = controws + 1;                       
-        index_data = np.arange(controws)
+        index_data = np.arange(1,controws-1)
         dfFinalDataCVS = pd.DataFrame.from_dict(new_list_values)
+        print (f"Writing file to {pathNewCSV}") 
         dfFinalDataCVS.to_csv(pathNewCSV,sep = ';', index=False)
 
