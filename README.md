@@ -26,7 +26,6 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://github.com/dnevado/etl-redcap-python-utility/issues)
 
 Data transformation from your base data is executed by this utility, a simple Python file which gets 2 files as parameters, first, the data file with the whole database , lets say "SampleData.xlsx" and the template file in csv downloaded from your project field settings.  In order to get it ready to be uploaded , the template's next row will be filled with those mapping field names from the initial dataset in Excel.
 
