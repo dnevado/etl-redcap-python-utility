@@ -27,6 +27,9 @@ import re
 
 FORMAT_DATE = "DD-MM-YYYY"
 
+COMPLETED_STR = "2"
+UNVERIFIED_STR = "1"
+
 path = os.getcwd()
 
 
@@ -221,10 +224,9 @@ if dfTemplateDataCVS is not None:
                         calculatedFieldValue = new_row_dict_columns_mapping[itemkey]
 
                         fData,cData,vconditionData,true_condition,falseconditionData =  splitCalculatedField(calculatedFieldValue) 
-
+                        
                         if fData is not None and row[fData] is not None and str(row[fData]).strip()!='': 
-                            if itemkey == "tc_control_24h":
-                               debug  = 1
+                           
                             mappingFieldValue = str(row[fData])
 
                             if cData == operators.EQUAL.value:
@@ -258,16 +260,19 @@ if dfTemplateDataCVS is not None:
                         # DD-MM-YYYY (NO HOURS) 
                         # . FOR DECIMAL SEPARATOR 
                         # 
+
                         if new_row_dict_columns_mapping[itemkey] == ''  or pd.isna(row[new_row_dict_columns_mapping[itemkey]]) or row[new_row_dict_columns_mapping[itemkey]] in PATTERN_VALUES_ERRORS_TARGET:  ## contador field 
                             final_data_redcap_row_column = {itemkey : controws+1 if itemkey=='record_id' else  ''}
                         else:
+                            if itemkey == "dias_isquemia" :
+                               debug  = 1
                             if isinstance(row[new_row_dict_columns_mapping[itemkey]], float): # 
                                 rounded  = row[new_row_dict_columns_mapping[itemkey]] #  round(row[new_row_dict_columns_mapping[itemkey]], 6)                                
                                 rounded = dropzeros(rounded)
                                 # roundedDecimalFormat = str(rounded).replace(".",",")
                                 final_data_redcap_row_column = {itemkey : rounded  }
                             else:
-                                if isinstance(row[new_row_dict_columns_mapping[itemkey]], int): #                                   
+                                if isinstance(row[new_row_dict_columns_mapping[itemkey]], int)  or (isinstance(row[new_row_dict_columns_mapping[itemkey]], str) and row[new_row_dict_columns_mapping[itemkey]].isnumeric()): #  isinstance(row[new_row_dict_columns_mapping[itemkey]], int): #                                   
                                     final_data_redcap_row_column = {itemkey : row[new_row_dict_columns_mapping[itemkey]]  }
                                 else: #timestamp
                                     dateformatValue = date_format_from_timestamp(row[new_row_dict_columns_mapping[itemkey]])
@@ -285,6 +290,14 @@ if dfTemplateDataCVS is not None:
             controws = controws + 1;                       
         index_data = np.arange(1,controws-1)
         dfFinalDataCVS = pd.DataFrame.from_dict(new_list_values)
+        dfFinalDataCVS.loc[:, "hoja_general_recogida_datos_complete"] = COMPLETED_STR
+        dfFinalDataCVS.loc[:,"primer_tc_complete"] = COMPLETED_STR
+        dfFinalDataCVS.loc[:,"peor_tc_complete"] = COMPLETED_STR
+        dfFinalDataCVS.loc[:,"rm_complete"] = UNVERIFIED_STR
+        dfFinalDataCVS.loc[:,"lesin_cerebrovascular_traumatica_complete"] = UNVERIFIED_STR
+        dfFinalDataCVS.loc[:,"tratamiento_complete"] = COMPLETED_STR
+        dfFinalDataCVS.loc[:,"evolucin_complete"] = UNVERIFIED_STR
+
         print (f"Writing file to {pathNewCSV}") 
         dfFinalDataCVS.to_csv(pathNewCSV,sep = ';', index=False)
 
